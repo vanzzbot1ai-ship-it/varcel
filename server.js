@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// List Rekomendasi Kata Kunci Galau buat Vanz
+// List Rekomendasi Kata Kunci Galau (Biar Beranda Variatif)
 const rekomendasiGalau = [
     "Hindia Baskara Putra lagu sedih",
     "Virgoun surat cinta untuk starla sedih",
@@ -23,16 +23,21 @@ const rekomendasiGalau = [
 ];
 
 app.get('/api/search', async (req, res) => {
+    // Ambil random dari list galau jika query kosong
     const randomDefault = rekomendasiGalau[Math.floor(Math.random() * rekomendasiGalau.length)];
     const query = req.query.q || randomDefault;
     
-    // Cek Cache (30 menit)
+    // 1. Cek Cache (30 Menit)
     const cachedResult = cache.get(query);
     if (cachedResult) {
+        console.log(`[Cache] Menggunakan data simpanan untuk: ${query}`);
         return res.json(cachedResult);
     }
 
     try {
+        console.log(`[API] Mencari lagu: ${query}`);
+        
+        // 2. Request ke TikWM dengan User-Agent iPhone (Biar gak kena blok)
         const response = await axios.get(`https://www.tikwm.com/api/feed/search`, {
             params: {
                 keywords: query,
@@ -57,7 +62,9 @@ app.get('/api/search', async (req, res) => {
                 play_url: v.music_info.play
             }));
 
+        // 3. Simpan ke Cache
         cache.put(query, videos, 1800000);
+
         res.json(videos);
     } catch (err) {
         console.error("Error VanzMusic:", err.message);
@@ -65,12 +72,7 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// Penting untuk Vercel handle request ke index.html
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Port untuk lokal
+// Port untuk lokal & production
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => {
@@ -78,4 +80,4 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-module.exports = app; // INI KUNCINYA 🔑
+module.exports = app; // Penting untuk Vercel
