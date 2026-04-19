@@ -2,77 +2,74 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const cache = require('memory-cache');
-const path = require('path');
 
 const app = express();
-app.use(cors());
-app.use(express.static(path.join(__dirname, 'public')));
+const PORT = process.env.PORT || 3000;
 
-// List Rekomendasi Kata Kunci Galau (Biar Beranda Variatif)
-const rekomendasiGalau = [
-    "Hindia Baskara Putra lagu sedih",
-    "Virgoun surat cinta untuk starla sedih",
-    "Nadin Amizah sedih",
-    "Lomba Sihir galau",
-    "Feby Putri lagu sedih",
-    "Pamungkas sedih",
-    "Raim Laode Komang sedih"
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// Daftar kata kunci otomatis biar web gak mati gaya (Sad & Random)
+const autoPlayKeywords = [
+    "Bernadya", "Hindia", "Tulus", "Sal Priadi", 
+    "Lagu Galau Indonesia", "Feby Putri", "Nadin Amizah", 
+    "Gildcoustic", "Guyon Waton", "Juicy Luicy"
 ];
 
+// Endpoint Pencarian Utama
 app.get('/api/search', async (req, res) => {
-    // Jika tidak ada query, ambil random dari list galau buat beranda
-    const randomDefault = rekomendasiGalau[Math.floor(Math.random() * rekomendasiGalau.length)];
-    const query = req.query.q || randomDefault;
-    
-    // 1. Cek Cache (Simpan selama 30 menit biar nggak nembak API terus)
-    const cachedResult = cache.get(query);
-    if (cachedResult) {
-        console.log(`[Cache] Menggunakan data simpanan untuk: ${query}`);
-        return res.json(cachedResult);
+    let query = req.query.q;
+
+    // JIKA query kosong, ambil kata kunci acak dari daftar di atas
+    if (!query || query.trim() === "") {
+        query = autoPlayKeywords[Math.floor(Math.random() * autoPlayKeywords.length)];
+    }
+
+    const cacheKey = `search_${query}`;
+    const cachedData = cache.get(cacheKey);
+
+    if (cachedData) {
+        return res.json(cachedData);
     }
 
     try {
-        console.log(`[API] Mencari lagu: ${query}`);
+        // Menggunakan API TikTok untuk mencari musik (Sesuai kebutuhan project Vanz)
+        const response = await axios.get(`https://skizo.tech/api/tiktok-search?search=${encodeURIComponent(query)}&apikey=Ganz`);
         
-        // 2. Gunakan User-Agent Random biar nggak disangka Bot
-        const response = await axios.get(`https://www.tikwm.com/api/feed/search`, {
-            params: {
-                keywords: query,
-                count: 15, // Ambil 15 saja biar enteng & aman dari ban
-                cursor: 0
-            },
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1'
-            }
-        });
+        const results = response.data.map(item => ({
+            title: item.title || "Unknown Title",
+            author: item.author || "Unknown Artist",
+            audio: item.audio || item.music,
+            cover: item.cover || "https://files.catbox.moe/67v02n.jpg" // Default cover
+        }));
 
-        if (!response.data || !response.data.data || !response.data.data.videos) {
-            return res.json([]);
-        }
-
-        const videos = response.data.data.videos
-            .filter(v => v.music_info && v.music_info.play)
-            .map(v => ({
-                title: v.music_info.title,
-                author: v.music_info.author,
-                image: v.music_info.cover || v.cover,
-                play_url: v.music_info.play
-            }));
-
-        // 3. Simpan ke Cache selama 1.800.000 ms (30 Menit)
-        cache.put(query, videos, 1800000);
-
-        res.json(videos);
-    } catch (err) {
-        console.error("Error VanzMusic:", err.message);
-        res.status(500).json({ error: "Server lagi galau, coba lagi nanti." });
+        cache.put(cacheKey, results, 1000 * 60 * 60); // Cache 1 jam
+        res.json(results);
+    } catch (error) {
+        console.error("Error fetching data:", error.message);
+        res.status(500).json({ error: "Gagal mengambil data lagu." });
     }
 });
 
-// Port untuk lokal, Vercel akan handle secara otomatis
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`VanzMusic siap galau di port ${PORT}`);
+// Endpoint untuk mendapatkan satu lagu acak (Bisa dipanggil pas lagu habis)
+app.get('/api/random', async (req, res) => {
+    const randomWord = autoPlayKeywords[Math.floor(Math.random() * autoPlayKeywords.length)];
+    try {
+        const response = await axios.get(`https://skizo.tech/api/tiktok-search?search=${encodeURIComponent(randomWord)}&apikey=Ganz`);
+        const item = response.data[Math.floor(Math.random() * response.data.length)];
+        res.json({
+            title: item.title,
+            author: item.author,
+            audio: item.audio || item.music,
+            cover: item.cover
+        });
+    } catch (e) {
+        res.status(500).send("Error");
+    }
 });
 
-module.exports = app; // Penting untuk Vercel
+app.listen(PORT, () => {
+    console.log(`Server VanzMusic running on port ${PORT}`);
+});
+    
