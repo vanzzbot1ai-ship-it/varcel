@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VanzMusic - Pink Love</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { background: #000; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+
+        /* Spotify Header */
+        .header-gradient { background: linear-gradient(to bottom, #1db95422 0%, #000 100%); padding: 30px 20px 10px 20px; position: sticky; top: 0; z-index: 100; }
+        .search-pill { background: #282828; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-top: 15px; border: 1px solid transparent; }
+        input { background: transparent; border: none; outline: none; color: #fff; width: 100%; font-size: 14px; font-weight: 600; }
+
+        /* Song List */
+        .song-item { display: flex; align-items: center; gap: 15px; padding: 12px 20px; transition: 0.2s; position: relative; }
+        .song-item:active { background: rgba(255, 255, 255, 0.1); }
+        .song-item img { width: 52px; height: 52px; border-radius: 4px; object-fit: cover; }
+        
+        /* Ikon Pink Hati di Beranda */
+        .liked-item { position: absolute; right: 20px; color: #ff0050; font-size: 12px; display: none; }
+
+        /* Mini Player */
+        .player-bar { position: fixed; bottom: 85px; left: 8px; right: 8px; background: #1db954; height: 62px; border-radius: 8px; display: none; align-items: center; padding: 0 12px; z-index: 1000; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
+        
+        /* Full Player Overlay */
+        #fullPlayer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, #121212 0%, #000 100%); z-index: 2000; display: none; flex-direction: column; padding: 40px 30px; }
+        .lyric-box { margin-top: 30px; height: 180px; overflow-y: auto; font-size: 22px; font-weight: 800; line-height: 1.4; background: linear-gradient(to bottom, #fff 0%, rgba(255,255,255,0.2) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Bottom Nav */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; height: 75px; background: #000; display: flex; justify-content: space-around; align-items: center; padding-bottom: 10px; z-index: 1001; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #b3b3b3; gap: 4px; font-size: 9px; transition: 0.3s; }
+        .nav-item.active { color: #fff; }
+
+        /* Neon Glowing Pink for Liked */
+        .btn-love-active { color: #ff0050 !important; text-shadow: 0 0 15px rgba(255, 0, 80, 0.7); }
+        .nav-item-active { color: #ff0050 !important; }
+
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header-gradient">
+        <h1 class="text-2xl font-extrabold tracking-tighter">Vanz<span class="text-[#1db954]">Music</span></h1>
+        <div class="search-pill">
+            <i class="fa-solid fa-search text-gray-400"></i>
+            <input id="q" type="text" placeholder="Cari musik favoritmu..." onkeypress="if(event.key==='Enter') cari()">
+        </div>
+    </div>
+
+    <div class="px-5 mt-4">
+        <h2 id="label" class="text-lg font-bold mb-4 tracking-tight">Dibuat untuk Vanz</h2>
+        <div id="list" class="pb-40 -mx-2">
+            </div>
+    </div>
+
+    <div id="player" class="player-bar" onclick="openFullPlayer()">
+        <img id="p-img" class="w-11 h-11 rounded shadow-lg" src="">
+        <div class="flex-1 ml-3 overflow-hidden">
+            <div id="p-title" class="text-[13px] font-bold text-black truncate">Memutar...</div>
+            <div id="p-artist" class="text-[11px] text-black/70 font-bold">VanzMusic</div>
+        </div>
+        <i onclick="event.stopPropagation(); toggle();" id="p-icon" class="fa-solid fa-pause text-black text-2xl px-2"></i>
+    </div>
+
+    <div id="fullPlayer">
+        <div class="flex justify-between items-center mb-8">
+            <i class="fa-solid fa-chevron-down text-2xl" onclick="closeFullPlayer()"></i>
+            <span class="text-[10px] font-bold tracking-widest uppercase opacity-60">Now Playing</span>
+            <i class="fa-solid fa-ellipsis text-xl"></i>
+        </div>
+        <img id="f-img" class="w-full aspect-square rounded-2xl shadow-2xl mb-8 object-cover" src="">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex-1 overflow-hidden pr-3">
+                <h2 id="f-title" class="text-2xl font-black truncate">Judul Lagu</h2>
+                <p id="f-artist" class="text-lg text-[#1db954] font-bold">Nama Artis</p>
+            </div>
+            <i id="btn-love" class="fa-solid fa-heart text-2xl transition-all duration-300" onclick="toggleLike()"></i>
+        </div>
+        <div class="lyric-box" id="f-lyrics">Mengevaluasi diri...</div>
+        <div class="mt-auto pb-12">
+            <div class="w-full bg-white/10 h-1.5 rounded-full mb-6">
+                <div id="f-progress" class="bg-white h-full rounded-full transition-all duration-100" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between items-center px-4">
+                <i class="fa-solid fa-backward-step text-3xl" onclick="prev()"></i>
+                <i onclick="toggle()" id="f-icon" class="fa-solid fa-circle-pause text-7xl"></i>
+                <i class="fa-solid fa-forward-step text-3xl" onclick="next()"></i>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div id="nav-home" class="nav-item active" onclick="goHome()"><i class="fa-solid fa-house text-xl"></i><span>Home</span></div>
+        <div id="nav-liked" class="nav-item" onclick="showLiked()"><i class="fa-solid fa-heart text-xl"></i><span>Suka</span></div>
+    </nav>
+
+    <audio id="audio"></audio>
+
+    <script>
+        const audio = document.getElementById('audio');
+        let playlist = [];
+        let likedSongs = JSON.parse(localStorage.getItem('vanzLiked')) || [];
+        let currentIdx = 0;
+        let isLikedPage = false;
+
+        async function cari(query = "") {
+            isLikedPage = false;
+            updateNav();
+            const q = query || document.getElementById('q').value;
+            const listDiv = document.getElementById('list');
+            document.getElementById('label').innerText = q ? `Hasil untuk "${q}"` : "Dibuat untuk Vanz";
+            listDiv.innerHTML = '<p class="text-center py-20 text-gray-500 font-bold">Mencari getaran Baskara...</p>';
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(q || "Hindia Baskara Putra lagu sedih")}`);
+                playlist = await res.json();
+                renderList(playlist);
+            } catch (e) { listDiv.innerHTML = '<p class="text-center py-20 text-red-500">Error Server!</p>'; }
+        }
+
+        function renderList(data) {
+            const listDiv = document.getElementById('list');
+            listDiv.innerHTML = '';
+            data.forEach((s, i) => {
+                // Cek apakah lagu ini sudah dilike
+                const isLiked = likedSongs.some(item => item.play_url === s.play_url);
+                listDiv.innerHTML += `
+                    <div class="song-item" onclick="putar(${i})">
+                        <img src="${s.image}">
+                        <div class="flex-1 overflow-hidden pr-8">
+                            <div class="text-[14px] font-bold truncate">${s.title}</div>
+                            <div class="text-[11px] text-[#b3b3b3] font-semibold">${s.author}</div>
+                        </div>
+                        <i class="fa-solid fa-heart liked-item" style="display:${isLiked ? 'block' : 'none'}"></i>
+                    </div>
+                `;
+            });
+        }
+
+        function putar(i) {
+            currentIdx = i;
+            const s = isLikedPage ? likedSongs[i] : playlist[i];
+            
+            document.getElementById('p-img').src = s.image;
+            document.getElementById('p-title').innerText = s.title;
+            document.getElementById('p-artist').innerText = s.author;
+            document.getElementById('player').style.display = 'flex';
+
+            document.getElementById('f-img').src = s.image;
+            document.getElementById('f-title').innerText = s.title;
+            document.getElementById('f-artist').innerText = s.author;
+            document.getElementById('f-lyrics').innerText = s.title + " - Versi VanzMusic";
+
+            audio.src = s.play_url;
+            audio.play();
+            updateIcons(true);
+            checkLoveStatus(s.play_url);
+        }
+
+        function toggleLike() {
+            const s = isLikedPage ? likedSongs[currentIdx] : playlist[currentIdx];
+            const index = likedSongs.findIndex(item => item.play_url === s.play_url);
+            
+            if (index === -1) {
+                likedSongs.push(s);
+            } else {
+                likedSongs.splice(index, 1);
+            }
+            
+            localStorage.setItem('vanzLiked', JSON.stringify(likedSongs));
+            checkLoveStatus(s.play_url);
+            if(isLikedPage) showLiked();
+            if(!isLikedPage) renderList(playlist); // Refresh beranda biar ikon hati muncul
+        }
+
+        function checkLoveStatus(url) {
+            const btn = document.getElementById('btn-love');
+            const exists = likedSongs.some(s => s.play_url === url);
+            // Tambahkan class Pink Neon kalau disukai
+            btn.className = exists ? 'fa-solid fa-heart text-2xl transition-all duration-300 btn-love-active' : 'fa-solid fa-heart text-2xl transition-all duration-300';
+        }
+
+        function showLiked() {
+            isLikedPage = true;
+            updateNav();
+            document.getElementById('label').innerText = "Lagu yang Kamu Sukai";
+            if (likedSongs.length === 0) {
+                document.getElementById('list').innerHTML = '<p class="text-center py-20 text-gray-500 font-bold">Belum ada lagu yang disukai.</p>';
+            } else {
+                renderList(likedSongs);
+            }
+        }
+
+        function updateNav() {
+            document.getElementById('nav-home').classList.toggle('active', !isLikedPage);
+            document.getElementById('nav-liked').className = isLikedPage ? 'nav-item nav-item-active' : 'nav-item';
+        }
+
+        function toggle() {
+            if(audio.paused) { audio.play(); updateIcons(true); }
+            else { audio.pause(); updateIcons(false); }
+        }
+
+        function updateIcons(isPlaying) {
+            document.getElementById('p-icon').className = isPlaying ? 'fa-solid fa-pause text-black text-2xl px-2' : 'fa-solid fa-play text-black text-2xl px-2';
+            document.getElementById('f-icon').className = isPlaying ? 'fa-solid fa-circle-pause text-7xl' : 'fa-solid fa-circle-play text-7xl';
+        }
+
+        audio.ontimeupdate = () => {
+            const pct = (audio.currentTime / audio.duration) * 100;
+            document.getElementById('f-progress').style.width = pct + '%';
+        };
+
+        audio.onended = () => next();
+        function next() { let list = isLikedPage ? likedSongs : playlist; if(currentIdx < list.length - 1) putar(currentIdx + 1); }
+        function prev() { if(currentIdx > 0) putar(currentIdx - 1); }
+
+        function goHome() { document.getElementById('q').value = ''; cari(); window.scrollTo({top: 0, behavior: 'smooth'}); }
+        function openFullPlayer() { document.getElementById('fullPlayer').style.display = 'flex'; }
+        function closeFullPlayer() { document.getElementById('fullPlayer').style.display = 'none'; }
+
+        cari();
+    </script>
+</body>
+</html>
