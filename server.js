@@ -10,18 +10,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Daftar kata kunci otomatis biar web gak mati gaya (Sad & Random)
-const autoPlayKeywords = [
-    "Bernadya", "Hindia", "Tulus", "Sal Priadi", 
-    "Lagu Galau Indonesia", "Feby Putri", "Nadin Amizah", 
-    "Gildcoustic", "Guyon Waton", "Juicy Luicy"
-];
+// Kata kunci ringkas agar API Skizo tidak overload/error
+const autoPlayKeywords = ["Bernadya", "Hindia", "Tulus", "Sal Priadi", "Feby Putri"];
 
-// Endpoint Pencarian Utama
 app.get('/api/search', async (req, res) => {
     let query = req.query.q;
 
-    // JIKA query kosong, ambil kata kunci acak dari daftar di atas
     if (!query || query.trim() === "") {
         query = autoPlayKeywords[Math.floor(Math.random() * autoPlayKeywords.length)];
     }
@@ -34,17 +28,17 @@ app.get('/api/search', async (req, res) => {
     }
 
     try {
-        // Menggunakan API TikTok untuk mencari musik (Sesuai kebutuhan project Vanz)
         const response = await axios.get(`https://skizo.tech/api/tiktok-search?search=${encodeURIComponent(query)}&apikey=Ganz`);
         
+        // Mengembalikan format s.image dan s.play_url asli bawaan awalmu agar tidak bentrok
         const results = response.data.map(item => ({
             title: item.title || "Unknown Title",
             author: item.author || "Unknown Artist",
-            audio: item.audio || item.music,
-            cover: item.cover || "https://files.catbox.moe/67v02n.jpg" // Default cover
+            play_url: item.audio || item.music,
+            image: item.cover || "https://files.catbox.moe/67v02n.jpg"
         }));
 
-        cache.put(cacheKey, results, 1000 * 60 * 60); // Cache 1 jam
+        cache.put(cacheKey, results, 1000 * 60 * 60);
         res.json(results);
     } catch (error) {
         console.error("Error fetching data:", error.message);
@@ -52,7 +46,6 @@ app.get('/api/search', async (req, res) => {
     }
 });
 
-// Endpoint untuk mendapatkan satu lagu acak (Bisa dipanggil pas lagu habis)
 app.get('/api/random', async (req, res) => {
     const randomWord = autoPlayKeywords[Math.floor(Math.random() * autoPlayKeywords.length)];
     try {
@@ -61,8 +54,8 @@ app.get('/api/random', async (req, res) => {
         res.json({
             title: item.title,
             author: item.author,
-            audio: item.audio || item.music,
-            cover: item.cover
+            play_url: item.audio || item.music,
+            image: item.cover
         });
     } catch (e) {
         res.status(500).send("Error");
@@ -72,4 +65,3 @@ app.get('/api/random', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server VanzMusic running on port ${PORT}`);
 });
-                                              
