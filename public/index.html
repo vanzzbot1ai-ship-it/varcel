@@ -117,13 +117,14 @@
             const q = query || document.getElementById('q').value;
             const listDiv = document.getElementById('list');
             document.getElementById('label').innerText = q ? `Hasil untuk "${q}"` : "Dibuat untuk Vanz";
-            listDiv.innerHTML = '<p class="text-center py-20 text-gray-500 font-bold animate-pulse">Mencari alunan melodi...</p>';
+            listDiv.innerHTML = '<p class="text-center py-20 text-gray-500 font-bold animate-pulse">Mencari getaran melodi...</p>';
             try {
+                // Diperbaiki: Menggunakan path normal agar Skizo API merespon dengan cepat tanpa error 500
                 const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
                 playlist = await res.json();
                 renderList(playlist);
 
-                // FITUR LINK OTOMATIS: Pas buka web langsung memutar lagu pertama dari playlist
+                // FITUR LANGSUNG PUTAR: Mainkan lagu pertama secara otomatis saat web dibuka
                 if (playlist.length > 0 && query === "") {
                     putar(0);
                 }
@@ -134,11 +135,11 @@
             const listDiv = document.getElementById('list');
             listDiv.innerHTML = '';
             data.forEach((s, i) => {
-                // SINKRONISASI VARIABEL: Menggunakan s.audio dari server.js baru Anda
-                const isLiked = likedSongs.some(item => item.audio === s.audio);
+                // SINKRONISASI VARIABEL: Kembali menggunakan Properti Aslimu (s.play_url)
+                const isLiked = likedSongs.some(item => item.play_url === s.play_url);
                 listDiv.innerHTML += `
                     <div class="song-item" onclick="putar(${i})">
-                        <img src="${s.cover || 'https://files.catbox.moe/67v02n.jpg'}">
+                        <img src="${s.image}">
                         <div class="flex-1 overflow-hidden pr-24">
                             <div class="text-[14px] font-bold truncate">${s.title}</div>
                             <div class="text-[11px] text-[#b3b3b3] font-semibold truncate">${s.author}</div>
@@ -155,35 +156,35 @@
             const s = isLikedPage ? likedSongs[i] : playlist[i];
             if (!s) return;
             
-            // SINKRONISASI VARIABEL: Menggunakan s.cover dan s.audio
-            document.getElementById('p-img').src = s.cover || 'https://files.catbox.moe/67v02n.jpg';
+            // SINKRONISASI VARIABEL: Menggunakan s.image dan s.play_url bawaan awal
+            document.getElementById('p-img').src = s.image;
             document.getElementById('p-title').innerText = s.title;
             document.getElementById('p-artist').innerText = s.author;
             document.getElementById('player').style.display = 'flex';
 
-            document.getElementById('f-img').src = s.cover || 'https://files.catbox.moe/67v02n.jpg';
+            document.getElementById('f-img').src = s.image;
             document.getElementById('f-title').innerText = s.title;
             document.getElementById('f-artist').innerText = s.author;
             
-            // FITUR LIRIK OTOMATIS CERDAS: Menghasilkan lirik dinamis Spotify Style
-            document.getElementById('f-lyrics').innerHTML = `🎵 Memutar:\n<span class="text-white font-extrabold text-xl">${s.title}</span>\n\n🎤 Artis:\n<span class="text-[#1db954] text-lg">${s.author}</span>\n\n✨ Melodi indah ini sedang berputar nonstop 24 jam menemanimu di VanzMusic.`;
+            // TAMBAHAN FITUR: LIRIK OTOMATIS CERDAS (Tidak Kosong)
+            document.getElementById('f-lyrics').innerHTML = `🎵 Sedang Diputar:\n<span class="text-white font-extrabold text-xl">${s.title}</span>\n\n🎤 Penyanyi:\n<span class="text-[#1db954] text-lg">${s.author}</span>\n\n✨ Menikmati ketukan harmoni indah ini nonstop 24 jam bersama VanzMusic.`;
 
-            audio.src = s.audio;
+            audio.src = s.play_url;
             
-            // Kebijakan browser mengharuskan interaksi klik user untuk memutar suara di awal
+            // Mengatasi pembatasan autoplay browser (wajib interaksi pengguna)
             audio.play().catch(e => {
-                console.log("Autoplay diblokir oleh browser. Menunggu interaksi pertama user.");
+                console.log("Autoplay ditahan oleh kebijakan browser sebelum ada klik.");
                 updateIcons(false);
             });
             
             updateIcons(true);
-            checkLoveStatus(s.audio);
+            checkLoveStatus(s.play_url);
         }
 
         function toggleLike() {
             const s = isLikedPage ? likedSongs[currentIdx] : playlist[currentIdx];
             if (!s) return;
-            const index = likedSongs.findIndex(item => item.audio === s.audio);
+            const index = likedSongs.findIndex(item => item.play_url === s.play_url);
             
             if (index === -1) {
                 likedSongs.push(s);
@@ -192,14 +193,14 @@
             }
             
             localStorage.setItem('vanzLiked', JSON.stringify(likedSongs));
-            checkLoveStatus(s.audio);
+            checkLoveStatus(s.play_url);
             if(isLikedPage) showLiked();
             if(!isLikedPage) renderList(playlist); 
         }
 
-        function checkLoveStatus(audioUrl) {
+        function checkLoveStatus(url) {
             const btn = document.getElementById('btn-love');
-            const exists = likedSongs.some(s => s.audio === audioUrl);
+            const exists = likedSongs.some(s => s.play_url === url);
             btn.className = exists ? 'fa-solid fa-heart text-2xl transition-all duration-300 btn-love-active' : 'fa-solid fa-heart text-2xl transition-all duration-300';
         }
 
@@ -242,14 +243,14 @@
             audio.currentTime = (x / rect.width) * audio.duration;
         }
 
-        // FITUR PUTAR OTOMATIS NONSTOP 24 JAM BERGANTI SENDIRI
+        // TAMBAHAN FITUR: RE-GENERATE OTOMATIS NONSTOP 24 JAM SAAT LIST HABIS
         audio.onended = async () => {
             let list = isLikedPage ? likedSongs : playlist;
             if(currentIdx < list.length - 1) {
                 putar(currentIdx + 1);
             } else {
                 try {
-                    // Panggil endpoint /api/random milik server.js saat playlist habis
+                    // Panggil endpoint acak ketika lagu di antrean utama sudah selesai semua
                     const res = await fetch('/api/random');
                     const nextSong = await res.json();
                     if(!isLikedPage) {
@@ -274,14 +275,14 @@
             if(s) shareDirect(s.title, s.author);
         }
 
-        // FITUR BERBAGI LINK OTOMATIS
+        // TAMBAHAN FITUR: BERBAGI LINK OTOMATIS (SHARE)
         function shareDirect(title, author) {
-            const text = `🎧 Dengerin lagu "${title}" dari ${author} di VanzMusic! Parah keren banget 🚀`;
+            const text = `🎧 Yuk dengerin lagu "${title}" dari ${author} di VanzMusic! Vibesnya Spotify abis 🚀`;
             if(navigator.share) {
                 navigator.share({ title: 'VanzMusic Share', text: text, url: window.location.href });
             } else {
                 navigator.clipboard.writeText(text);
-                alert("Link rekomendasi musik berhasil disalin otomatis!");
+                alert("Link rekomendasi lagu berhasil disalin otomatis!");
             }
         }
 
@@ -289,7 +290,6 @@
         function openFullPlayer() { document.getElementById('fullPlayer').style.display = 'flex'; }
         function closeFullPlayer() { document.getElementById('fullPlayer').style.display = 'none'; }
 
-        // Eksekusi inisialisasi awal saat web dimuat
         cari("");
     </script>
 </body>
