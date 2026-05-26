@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VanzMusic - Spotify Vibes</title>
+    <title>VanzMusic - Spotify Premium Vibes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
         body { background: #000; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
 
-        /* Spotify Premium Theme */
+        /* Spotify Header */
         .header-gradient { background: linear-gradient(to bottom, #1db95422 0%, #000 100%); padding: 30px 20px 10px 20px; position: sticky; top: 0; z-index: 100; }
-        .search-pill { background: #282828; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-top: 15px; border: 1px solid transparent; }
+        .search-pill { background: #282828; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-top: 15px; }
         input { background: transparent; border: none; outline: none; color: #fff; width: 100%; font-size: 14px; font-weight: 600; }
 
         /* Song List Item */
@@ -20,16 +20,16 @@
         .song-item:active { background: rgba(255, 255, 255, 0.1); }
         .song-item img { width: 52px; height: 52px; border-radius: 4px; object-fit: cover; }
         
-        /* Ikon Pink Hati di Beranda */
+        /* Badges */
         .liked-badge { position: absolute; right: 55px; color: #ff0050; font-size: 14px; text-shadow: 0 0 10px rgba(255, 0, 80, 0.5); }
         .share-badge { position: absolute; right: 20px; color: #b3b3b3; font-size: 14px; padding: 5px; }
 
         /* Mini Player Bottom */
         .player-bar { position: fixed; bottom: 85px; left: 8px; right: 8px; background: #1db954; height: 62px; border-radius: 8px; display: none; align-items: center; padding: 0 12px; z-index: 1000; box-shadow: 0 8px 25px rgba(0,0,0,0.5); animation: slideUp 0.3s ease; }
         
-        /* Full Player Screen Overlay */
+        /* Full Screen Spotify Player */
         #fullPlayer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, #1a1a1a 0%, #000 100%); z-index: 2000; display: none; flex-direction: column; padding: 40px 30px; }
-        .lyric-box { margin-top: 25px; height: 160px; overflow-y: auto; font-size: 20px; font-weight: 800; line-height: 1.5; text-align: center; color: #1db954; transition: all 0.3s; padding: 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); }
+        .lyric-box { margin-top: 25px; height: 160px; overflow-y: auto; font-size: 20px; font-weight: 800; line-height: 1.5; text-align: center; color: #1db954; transition: all 0.3s; padding: 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); white-space: pre-line; }
 
         /* Bottom Navigation */
         .bottom-nav { position: fixed; bottom: 0; width: 100%; height: 75px; background: #000; display: flex; justify-content: space-around; align-items: center; padding-bottom: 10px; z-index: 1001; border-top: 1px solid #121212; }
@@ -37,9 +37,7 @@
         .nav-item.active { color: #fff; }
         .nav-item-active { color: #ff0050 !important; }
 
-        /* Glowing Effects */
         .btn-love-active { color: #ff0050 !important; text-shadow: 0 0 15px rgba(255, 0, 80, 0.8); }
-
         @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         ::-webkit-scrollbar { display: none; }
     </style>
@@ -116,29 +114,48 @@
         let currentIdx = 0;
         let isLikedPage = false;
 
-        // Fungsi Pencarian Utama - Sinkronisasi Penuh dengan server.js
+        // Mendukung multi-endpoint penyelarasan backend secara pintar
+        async function smartFetch(urlPath, backupPath) {
+            try {
+                let res = await fetch(urlPath);
+                if (!res.ok && backupPath) res = await fetch(backupPath);
+                return await res.json();
+            } catch (e) {
+                if (backupPath) {
+                    let resBackup = await fetch(backupPath);
+                    return await resBackup.json();
+                }
+                throw e;
+            }
+        }
+
         async function cari(query = "") {
             isLikedPage = false;
             updateNav();
             const q = query || document.getElementById('q').value;
             const listDiv = document.getElementById('list');
             document.getElementById('label').innerText = q ? `Hasil untuk "${q}"` : "Dibuat untuk Vanz";
-            listDiv.innerHTML = '<p class="text-center py-20 text-gray-500 font-bold">Mencari alunan musik...</p>';
+            listDiv.innerHTML = '<p class="text-center py-20 text-gray-400 font-bold animate-pulse">Mencari alunan musik...</p>';
             
             try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-                playlist = await res.json();
+                // Mencoba /api/search, jika server Anda pakai kustom ganti /api/get-song dia akan auto-handle
+                playlist = await smartFetch(`/api/search?q=${encodeURIComponent(q || "Bernadya")}`, `/api/get-song`);
+                // Jika server merespon objek tunggal, bungkus jadi array
+                if (playlist && !Array.isArray(playlist)) playlist = [playlist];
                 renderList(playlist);
             } catch (e) { 
-                listDiv.innerHTML = '<p class="text-center py-20 text-red-500">Gagal menghubungkan ke server VanzMusic!</p>'; 
+                listDiv.innerHTML = `
+                    <div class="text-center py-20 px-4">
+                        <p class="text-red-500 font-bold mb-2">Gagal menghubungkan ke server VanzMusic</p>
+                        <button onclick="cari('')" class="bg-[#1db954] text-black font-bold text-xs px-4 py-2 rounded-full mt-2">Coba Lagi</button>
+                    </div>`; 
             }
         }
 
-        // Render Lagu Sinkron dengan database server.js (s.cover & s.audio)
         function renderList(data) {
             const listDiv = document.getElementById('list');
             listDiv.innerHTML = '';
-            if(data.length === 0) {
+            if(!data || data.length === 0) {
                 listDiv.innerHTML = '<p class="text-center py-20 text-gray-500">Lagu tidak ditemukan.</p>';
                 return;
             }
@@ -146,10 +163,10 @@
                 const isLiked = likedSongs.some(item => item.audio === s.audio);
                 listDiv.innerHTML += `
                     <div class="song-item hover:bg-white/5" onclick="putar(${i})">
-                        <img src="${s.cover}">
+                        <img src="${s.cover || 'https://files.catbox.moe/67v02n.jpg'}">
                         <div class="flex-1 overflow-hidden pr-24">
-                            <div class="text-[14px] font-bold truncate">${s.title}</div>
-                            <div class="text-[11px] text-[#b3b3b3] font-semibold truncate">${s.author}</div>
+                            <div class="text-[14px] font-bold truncate">${s.title || "Unknown Title"}</div>
+                            <div class="text-[11px] text-[#b3b3b3] font-semibold truncate">${s.author || "Unknown Artist"}</div>
                         </div>
                         <i class="fa-solid fa-heart liked-badge" style="display:${isLiked ? 'block' : 'none'}"></i>
                         <i class="fa-solid fa-share-nodes share-badge" onclick="event.stopPropagation(); shareDirect('${s.title}', '${s.author}')"></i>
@@ -158,38 +175,35 @@
             });
         }
 
-        // Fungsi Putar Musik Utama
         function putar(i) {
             currentIdx = i;
             const s = isLikedPage ? likedSongs[i] : playlist[i];
             if(!s) return;
             
-            document.getElementById('p-img').src = s.cover;
+            document.getElementById('p-img').src = s.cover || 'https://files.catbox.moe/67v02n.jpg';
             document.getElementById('p-title').innerText = s.title;
             document.getElementById('p-artist').innerText = s.author;
             document.getElementById('player').style.display = 'flex';
 
-            document.getElementById('f-img').src = s.cover;
+            document.getElementById('f-img').src = s.cover || 'https://files.catbox.moe/67v02n.jpg';
             document.getElementById('f-title').innerText = s.title;
             document.getElementById('f-artist').innerText = s.author;
             
-            // Generate Lirik Otomatis Cerdas Anti Kosong
-            document.getElementById('f-lyrics').innerHTML = `🎵 Menyanyikan:<br><span class="text-white font-extrabold text-2xl">${s.title}</span><br><br><span class="text-gray-400 text-sm">Oleh: ${s.author}</span><br><br>✨ Melodi indah ini terus berputar nonstop 24 jam untuk menemanimu.`;
+            // Tampilan lirik otomatis rapi
+            document.getElementById('f-lyrics').innerHTML = `🎵 Menyanyikan:\n<span class="text-white font-extrabold text-xl">${s.title}</span>\n\n<span class="text-[#1db954] text-sm">Oleh: ${s.author}</span>\n\n✨ Melodi ini berjalan nonstop 24 jam di VanzMusic.`;
 
             audio.src = s.audio;
-            audio.play().catch(e => console.log("Interaksi user dibutuhkan untuk memulai audio."));
+            audio.play().catch(e => console.log("Menunggu interaksi pengguna..."));
             updateIcons(true);
             checkLoveStatus(s.audio);
         }
 
-        // Menangani Penyimpanan Tombol Love (Tetap ada & Tidak Hilang)
         function toggleLike() {
             const currentList = isLikedPage ? likedSongs : playlist;
             const s = currentList[currentIdx];
             if(!s) return;
 
             const index = likedSongs.findIndex(item => item.audio === s.audio);
-            
             if (index === -1) {
                 likedSongs.push(s);
             } else {
@@ -198,12 +212,7 @@
             
             localStorage.setItem('vanzLiked', JSON.stringify(likedSongs));
             checkLoveStatus(s.audio);
-            
-            if(isLikedPage) {
-                showLiked();
-            } else {
-                renderList(playlist);
-            }
+            if(isLikedPage) showLiked(); else renderList(playlist);
         }
 
         function checkLoveStatus(audioUrl) {
@@ -234,7 +243,6 @@
             document.getElementById('f-icon').className = isPlaying ? 'fa-solid fa-circle-pause text-7xl' : 'fa-solid fa-circle-play text-7xl';
         }
 
-        // Progress Bar Handler
         audio.ontimeupdate = () => {
             if(audio.duration) {
                 const pct = (audio.currentTime / audio.duration) * 100;
@@ -249,62 +257,45 @@
             audio.currentTime = (x / width) * audio.duration;
         }
 
-        // ALGORITMA NONSTOP 24 JAM: Mengambil lagu acak baru dari server otomatis jika playlist habis
+        // ALGORITMA NONSTOP 24 JAM SMART RESOLUTION
         audio.onended = async () => {
             let currentList = isLikedPage ? likedSongs : playlist;
             if(currentIdx < currentList.length - 1) {
                 putar(currentIdx + 1);
             } else {
                 try {
-                    // List habis? Ambil lagu otomatis via /api/random bawaan server.js Anda
-                    const res = await fetch('/api/random');
-                    const nextRandomSong = await res.json();
+                    // Coba endpoint /api/random, jika gagal lempar ke /api/get-song bawaan server baru Anda
+                    const nextRandomSong = await smartFetch('/api/random', '/api/get-song');
                     if(!isLikedPage) {
                         playlist.push(nextRandomSong);
                         renderList(playlist);
                         putar(playlist.length - 1);
                     } else {
-                        putar(0); // Jika di halaman favorit, putar ulang dari lagu pertama favorit
+                        putar(0);
                     }
                 } catch(err) {
-                    putar(0); // Fallback putar dari awal list
+                    putar(0); // Putar balik ke lagu pertama list jika offline
                 }
             }
         };
 
-        function next() { 
-            let currentList = isLikedPage ? likedSongs : playlist; 
-            if(currentIdx < currentList.length - 1) putar(currentIdx + 1); 
-        }
-        
-        function prev() { 
-            if(currentIdx > 0) putar(currentIdx - 1); 
-        }
-
-        // Fitur Tombol Berbagi Musik (Share)
-        function shareCurrent() {
-            const currentList = isLikedPage ? likedSongs : playlist;
-            const s = currentList[currentIdx];
-            if(s) shareDirect(s.title, s.author);
-        }
+        function next() { let currentList = isLikedPage ? likedSongs : playlist; if(currentIdx < currentList.length - 1) putar(currentIdx + 1); }
+        function prev() { if(currentIdx > 0) putar(currentIdx - 1); }
+        function shareCurrent() { const currentList = isLikedPage ? likedSongs : playlist; const s = currentList[currentIdx]; if(s) shareDirect(s.title, s.author); }
 
         function shareDirect(title, author) {
-            const text = `🎧 Cobain dengerin lagu "${title}" oleh ${author} di VanzMusic! Vibes-nya Spotify banget! 🔥`;
+            const text = `🎧 Cobain dengerin lagu "${title}" oleh ${author} di VanzMusic! Keren banget! 🔥`;
             if (navigator.share) {
                 navigator.share({ title: 'VanzMusic Share', text: text, url: window.location.href });
             } else {
                 navigator.clipboard.writeText(text);
-                alert("Link rekomendasi lagu berhasil disalin ke papan klip!");
+                alert("Link rekomendasi lagu berhasil disalin!");
             }
         }
 
-        function goHome() { 
-            document.getElementById('q').value = ''; 
-            cari(""); 
-            window.scrollTo({top: 0, behavior: 'smooth'}); 
-        }
+        function goHome() { document.getElementById('q').value = ''; cari(""); window.scrollTo({top: 0, behavior: 'smooth'}); }
 
-        // Inisialisasi Pertama Kali Membuka Halaman (Auto-load)
+        // Load pertama kali aman tanpa crash browser
         cari("");
     </script>
 </body>
