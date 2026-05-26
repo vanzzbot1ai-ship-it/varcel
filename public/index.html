@@ -13,15 +13,13 @@
         .search-pill { background: #282828; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-top: 15px; }
         input { background: transparent; border: none; outline: none; color: #fff; width: 100%; font-size: 14px; font-weight: 600; }
         .song-item { display: flex; align-items: center; gap: 15px; padding: 12px 20px; transition: 0.2s; position: relative; }
-        .song-item:active { background: rgba(255, 255, 255, 0.1); }
         .song-item img { width: 52px; height: 52px; border-radius: 4px; object-fit: cover; }
-        .player-bar { position: fixed; bottom: 75px; left: 8px; right: 8px; background: #1db954; height: 62px; border-radius: 8px; display: none; align-items: center; padding: 0 12px; z-index: 1000; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
+        .player-bar { position: fixed; bottom: 85px; left: 8px; right: 8px; background: #1db954; height: 62px; border-radius: 8px; display: none; align-items: center; padding: 0 12px; z-index: 1000; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
         #fullPlayer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; display: none; flex-direction: column; padding: 40px 30px; }
-        .lyric-box { margin-top: 30px; height: 200px; overflow-y: auto; text-align: center; font-size: 18px; font-weight: 700; color: #b3b3b3; }
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; height: 75px; background: #000; display: flex; justify-content: space-around; align-items: center; padding-bottom: 10px; z-index: 1001; border-top: 1px solid #222; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #b3b3b3; gap: 4px; font-size: 9px; }
+        .lyric-box { margin-top: 30px; height: 180px; overflow-y: auto; font-size: 20px; font-weight: 800; text-align: center; color: #1db954; }
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; height: 75px; background: #000; display: flex; justify-content: space-around; align-items: center; z-index: 1001; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #b3b3b3; font-size: 9px; }
         .nav-item.active { color: #fff; }
-        ::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
@@ -30,7 +28,7 @@
         <h1 class="text-2xl font-extrabold tracking-tighter">Vanz<span class="text-[#1db954]">Music</span></h1>
         <div class="search-pill">
             <i class="fa-solid fa-search text-gray-400"></i>
-            <input id="q" type="text" placeholder="Cari musik favoritmu..." onkeypress="if(event.key==='Enter') searchMusic()">
+            <input id="q" type="text" placeholder="Cari musik favoritmu..." onkeypress="if(event.key==='Enter') cari()">
         </div>
     </div>
 
@@ -50,11 +48,11 @@
     <div id="fullPlayer">
         <i class="fa-solid fa-chevron-down text-2xl" onclick="closeFullPlayer()"></i>
         <img id="f-img" class="w-full aspect-square rounded-2xl mt-8 shadow-2xl object-cover" src="">
-        <h2 id="f-title" class="text-xl font-black mt-6 truncate">Judul</h2>
-        <div class="lyric-box" id="f-lyrics">Mengevaluasi vibes...</div>
+        <h2 id="f-title" class="text-xl font-black mt-6 truncate">Judul Lagu</h2>
+        <div class="lyric-box" id="f-lyrics">Sedang memuat lagu...</div>
         <div class="mt-auto pb-12">
             <div class="w-full bg-white/10 h-1.5 rounded-full mb-6"><div id="f-progress" class="bg-white h-full w-0"></div></div>
-            <div class="flex justify-center items-center gap-8">
+            <div class="flex justify-between items-center px-4">
                 <i class="fa-solid fa-backward-step text-3xl" onclick="prev()"></i>
                 <i id="f-icon" class="fa-solid fa-circle-pause text-7xl" onclick="toggle()"></i>
                 <i class="fa-solid fa-forward-step text-3xl" onclick="next()"></i>
@@ -64,7 +62,6 @@
 
     <nav class="bottom-nav">
         <div id="nav-home" class="nav-item active" onclick="goHome()"><i class="fa-solid fa-house text-xl"></i><span>Home</span></div>
-        <div id="nav-liked" class="nav-item" onclick="showLiked()"><i class="fa-solid fa-heart text-xl"></i><span>Suka</span></div>
     </nav>
 
     <audio id="audio"></audio>
@@ -73,14 +70,16 @@
         const audio = document.getElementById('audio');
         let playlist = [];
         let currentIdx = 0;
-        let likedSongs = JSON.parse(localStorage.getItem('vanzLiked')) || [];
 
-        async function searchMusic(query = "") {
-            const q = query || document.getElementById('q').value || "Hindia Baskara";
-            document.getElementById('list').innerHTML = '<p class="text-center py-10">Mencari getaran...</p>';
-            const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-            playlist = await res.json();
-            renderList(playlist);
+        async function cari(query = "") {
+            const q = query || document.getElementById('q').value;
+            const listDiv = document.getElementById('list');
+            listDiv.innerHTML = '<p class="text-center py-20 text-gray-500">Mencari getaran...</p>';
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+                playlist = await res.json();
+                renderList(playlist);
+            } catch (e) { listDiv.innerHTML = '<p class="text-center py-20 text-red-500">Error Server!</p>'; }
         }
 
         function renderList(data) {
@@ -95,24 +94,24 @@
             });
         }
 
-        async function putar(i) {
+        function putar(i) {
             currentIdx = i;
             const s = playlist[i];
-            document.getElementById('player').style.display = 'flex';
             document.getElementById('p-img').src = document.getElementById('f-img').src = s.cover;
             document.getElementById('p-title').innerText = document.getElementById('f-title').innerText = s.title;
-            document.getElementById('f-lyrics').innerText = `Lirik Otomatis:\n\n"${s.title}"\nOleh: ${s.author}\n\nSedang memutar vibe nonstop...`;
-            audio.src = s.audio;
+            document.getElementById('f-lyrics').innerText = `🎵 ${s.title}\n\nSedang memutar vibe nonstop...`;
+            document.getElementById('player').style.display = 'flex';
+            audio.src = s.audio; // Sinkron dengan server.js
             audio.play();
         }
 
-        // LOGIKA NONSTOP: Saat lagu habis, ambil lagu baru otomatis
+        // AUTO-PLAY NONSTOP
         audio.onended = async () => {
             if (currentIdx < playlist.length - 1) {
                 putar(currentIdx + 1);
             } else {
-                // Auto-fetch lagu baru dari server saat list habis
-                const res = await fetch('/api/random'); 
+                // Ambil lagu baru secara otomatis jika list habis
+                const res = await fetch('/api/random');
                 const newSong = await res.json();
                 playlist.push(newSong);
                 putar(playlist.length - 1);
@@ -132,9 +131,9 @@
         function closeFullPlayer() { document.getElementById('fullPlayer').style.display = 'none'; }
         function next() { if(currentIdx < playlist.length - 1) putar(currentIdx + 1); }
         function prev() { if(currentIdx > 0) putar(currentIdx - 1); }
-        function goHome() { searchMusic(); }
+        function goHome() { cari("Hindia"); }
 
-        searchMusic();
+        cari("Hindia");
     </script>
 </body>
 </html>
